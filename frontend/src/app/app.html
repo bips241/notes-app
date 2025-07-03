@@ -1,0 +1,41 @@
+<div class="app-container" *ngIf="isAuthenticated">
+  <nav class="navbar">
+    <div class="nav-brand">
+      <h1>📒 Notes App</h1>
+    </div>
+    <div class="nav-user">
+      <span>Welcome, {{ currentUser?.firstName }}!</span>
+      <button (click)="logout()" class="btn btn-outline">Logout</button>
+    </div>
+  </nav>
+
+  <div class="main-content">
+    <aside class="sidebar">
+      <ul class="nav-links">
+        <li *ngIf="currentUser?.role === 'admin'">
+          <a routerLink="/admin-dashboard" routerLinkActive="active">🏠 Admin Dashboard</a>
+        </li>
+        <li *ngIf="currentUser?.role === 'user'">
+          <a routerLink="/dashboard" routerLinkActive="active">🏠 Dashboard</a>
+        </li>
+        <li><a routerLink="/notes" routerLinkActive="active">📝 My Notes</a></li>
+        <li><a routerLink="/shared" routerLinkActive="active">🔄 Shared With Me</a></li>
+        <li *ngIf="currentUser?.role === 'admin'">
+          <a routerLink="/analytics" routerLinkActive="active">📊 Analytics</a>
+        </li>
+        <li *ngIf="currentUser?.role === 'admin'">
+          <a routerLink="/users" routerLinkActive="active">👥 Users</a>
+        </li>
+        <li><a routerLink="/profile" routerLinkActive="active">⚙️ Profile</a></li>
+      </ul>
+    </aside>
+
+    <main class="content">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+</div>
+
+<div class="auth-container" *ngIf="!isAuthenticated">
+  <router-outlet></router-outlet>
+</div>

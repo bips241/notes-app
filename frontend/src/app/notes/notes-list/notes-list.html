@@ -1,0 +1,103 @@
+<div class="notes-container">
+  <div class="page-header">
+    <h1>📝 My Notes</h1>
+    <button class="btn btn-primary" routerLink="/notes/new">
+      ✏️ Create New Note
+    </button>
+  </div>
+  
+  <div class="search-section">
+    <input 
+      type="text" 
+      placeholder="Search notes..." 
+      class="search-input"
+    />
+  </div>
+
+  <div class="notes-grid" *ngIf="notes.length > 0">
+    <div class="note-card" *ngFor="let note of notes">
+      <div class="note-header">
+        <h3>{{ note.title }}</h3>
+        <div class="note-badges">
+          <span class="badge" *ngIf="note.owner._id !== authService.currentUserValue?._id">📤 Shared with me</span>
+          <span class="badge" *ngIf="hasSharedUsers(note)">🔗 Shared ({{ getSharedCount(note) }})</span>
+        </div>
+        <div class="note-actions">
+          <button class="btn-icon" (click)="editNote(note._id)" title="Edit note">✏️</button>
+          <button class="btn-icon" (click)="shareNote(note)" title="Share note">🔗</button>
+          <button class="btn-icon" (click)="deleteNote(note._id)" title="Delete note">🗑️</button>
+        </div>
+      </div>
+      <p class="note-content">{{ note.content | slice:0:100 }}...</p>
+      <div class="note-tags">
+        <span class="tag" *ngFor="let tag of note.tags">#{{ tag }}</span>
+      </div>
+      <div class="note-meta">
+        <small>{{ note.updatedAt | date:'short' }}</small>
+      </div>
+    </div>
+  </div>
+
+  <div class="empty-state" *ngIf="notes.length === 0 && !isLoading">
+    <h3>No notes found</h3>
+    <p>Create your first note to get started!</p>
+    <button class="btn btn-primary" routerLink="/notes/new">
+      ✏️ Create First Note
+    </button>
+  </div>
+
+  <div class="loading-state" *ngIf="isLoading">
+    <p>Loading notes...</p>
+  </div>
+
+  <!-- Share Modal -->
+  <div class="modal-overlay" *ngIf="showShareModal" (click)="closeShareModal()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Share Note: {{ selectedNote?.title }}</h3>
+        <button class="btn-close" (click)="closeShareModal()">×</button>
+      </div>
+      <div class="modal-content">
+        <form (submit)="shareNoteWithUser($event)" class="share-form">
+          <div class="form-group">
+            <label for="userEmail">User Email</label>
+            <input
+              type="email"
+              id="userEmail"
+              [(ngModel)]="shareForm.userEmail"
+              name="userEmail"
+              class="form-control"
+              placeholder="Enter user email to share with..."
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="permission">Permission</label>
+            <select id="permission" [(ngModel)]="shareForm.permission" name="permission" class="form-control">
+              <option value="read">Read Only</option>
+              <option value="write">Read & Write</option>
+            </select>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-outline" (click)="closeShareModal()">Cancel</button>
+            <button type="submit" class="btn btn-primary">Share Note</button>
+          </div>
+        </form>
+
+        <!-- Existing Shares -->
+        <div class="existing-shares" *ngIf="hasSharedUsers(selectedNote)">
+          <h4>Shared with:</h4>
+          <div class="share-list">
+            <div class="share-item" *ngFor="let share of selectedNote?.sharedWith">
+              <div class="share-info">
+                <strong>{{ share.user.firstName }} {{ share.user.lastName }}</strong>
+                <small>{{ share.user.email }} - {{ share.permission }}</small>
+              </div>
+              <button class="btn-icon text-red" (click)="removeShare(share.user._id)" title="Remove access">🗑️</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
