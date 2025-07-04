@@ -20,6 +20,7 @@
         </li>
         <li><a routerLink="/notes" routerLinkActive="active">📝 My Notes</a></li>
         <li><a routerLink="/shared" routerLinkActive="active">🔄 Shared With Me</a></li>
+        <li><a routerLink="/archived-messages" routerLinkActive="active">🗃️ Archived Messages</a></li>
         <li *ngIf="currentUser?.role === 'admin'">
           <a routerLink="/analytics" routerLinkActive="active">📊 Analytics</a>
         </li>

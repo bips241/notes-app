@@ -38,6 +38,10 @@ router.use(authMiddleware);
 // Routes
 router.post('/', noteValidation, notesController.createNote);
 router.get('/', notesController.getNotes);
+router.get('/shared', notesController.getSharedNotes);
+router.get('/archived', notesController.getArchivedNotes);
+router.patch('/:id/archive', notesController.archiveNote);
+router.patch('/:id/unarchive', notesController.unarchiveNote);
 router.get('/:id', notesController.getNoteById);
 router.put('/:id', noteValidation, notesController.updateNote);
 router.delete('/:id', notesController.deleteNote);

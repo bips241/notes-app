@@ -76,6 +76,44 @@ const userController = {
     } catch (error) {
       next(error);
     }
+  },
+
+  async addSharingRestriction(req, res, next) {
+    try {
+      const { userId } = req.params;
+      const { restrictedUserId } = req.body;
+
+      if (!restrictedUserId) {
+        return res.status(400).json({
+          message: 'Restricted user ID is required'
+        });
+      }
+
+      const result = await userService.addSharingRestriction(userId, restrictedUserId);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async removeSharingRestriction(req, res, next) {
+    try {
+      const { userId, restrictedUserId } = req.params;
+      const result = await userService.removeSharingRestriction(userId, restrictedUserId);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async getSharingRestrictions(req, res, next) {
+    try {
+      const { userId } = req.params;
+      const result = await userService.getSharingRestrictions(userId);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
   }
 };
 

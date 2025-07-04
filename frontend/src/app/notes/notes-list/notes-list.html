@@ -15,21 +15,22 @@
   </div>
 
   <div class="notes-grid" *ngIf="notes.length > 0">
-    <div class="note-card" *ngFor="let note of notes">
+    <div class="note-card" *ngFor="let note of notes" (click)="viewNote(note)">
       <div class="note-header">
         <h3>{{ note.title }}</h3>
         <div class="note-badges">
           <span class="badge" *ngIf="note.owner._id !== authService.currentUserValue?._id">📤 Shared with me</span>
           <span class="badge" *ngIf="hasSharedUsers(note)">🔗 Shared ({{ getSharedCount(note) }})</span>
         </div>
-        <div class="note-actions">
+        <div class="note-actions" (click)="$event.stopPropagation()">
           <button class="btn-icon" (click)="editNote(note._id)" title="Edit note">✏️</button>
           <button class="btn-icon" (click)="shareNote(note)" title="Share note">🔗</button>
+          <button class="btn-icon" (click)="archiveNote(note._id)" title="Archive note">📥</button>
           <button class="btn-icon" (click)="deleteNote(note._id)" title="Delete note">🗑️</button>
         </div>
       </div>
-      <p class="note-content">{{ note.content | slice:0:100 }}...</p>
-      <div class="note-tags">
+      <p class="note-content">{{ getPreviewText(note.content) }}</p>
+      <div class="note-tags" *ngIf="note.tags && note.tags.length > 0">
         <span class="tag" *ngFor="let tag of note.tags">#{{ tag }}</span>
       </div>
       <div class="note-meta">
@@ -61,15 +62,43 @@
         <form (submit)="shareNoteWithUser($event)" class="share-form">
           <div class="form-group">
             <label for="userEmail">User Email</label>
-            <input
-              type="email"
-              id="userEmail"
-              [(ngModel)]="shareForm.userEmail"
-              name="userEmail"
-              class="form-control"
-              placeholder="Enter user email to share with..."
-              required
-            />
+            <div class="search-container">
+              <input
+                type="email"
+                id="userEmail"
+                [(ngModel)]="shareForm.userEmail"
+                name="userEmail"
+                class="form-control"
+                placeholder="Enter user email to share with..."
+                (input)="onUserEmailInput()"
+                (blur)="hideSearchDropdown()"
+                autocomplete="off"
+                required
+              />
+              <div class="search-dropdown" *ngIf="showSearchDropdown">
+                <div class="search-loading" *ngIf="isSearching">
+                  <span class="spinner"></span>
+                  <span>Searching users...</span>
+                </div>
+                <div class="search-results" *ngIf="!isSearching && searchResults.length > 0">
+                  <div 
+                    class="search-result-item" 
+                    *ngFor="let user of searchResults"
+                    (click)="selectUser(user)">
+                    <div class="user-avatar">
+                      <span>{{ getUserInitials(user) }}</span>
+                    </div>
+                    <div class="user-info">
+                      <div class="user-name">{{ getUserDisplayName(user) }}</div>
+                      <div class="user-email">{{ user.email }}</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="search-no-results" *ngIf="!isSearching && searchResults.length === 0 && userSearchTerm">
+                  <span>No users found</span>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="form-group">
             <label for="permission">Permission</label>
@@ -96,6 +125,48 @@
               <button class="btn-icon text-red" (click)="removeShare(share.user._id)" title="Remove access">🗑️</button>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- View Note Modal -->
+  <div class="modal-overlay" *ngIf="showViewModal" (click)="closeViewModal()">
+    <div class="modal view-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>{{ viewingNote?.title }}</h3>
+        <button class="btn-close" (click)="closeViewModal()">×</button>
+      </div>
+      <div class="modal-content">
+        <div class="note-full-content">
+          <div class="note-meta-info" *ngIf="viewingNote">
+            <div class="meta-item">
+              <span class="meta-label">Created:</span>
+              <span class="meta-value">{{ viewingNote.createdAt | date:'medium' }}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Updated:</span>
+              <span class="meta-value">{{ viewingNote.updatedAt | date:'medium' }}</span>
+            </div>
+            <div class="meta-item" *ngIf="viewingNote.owner._id !== authService.currentUserValue?._id">
+              <span class="meta-label">Owner:</span>
+              <span class="meta-value">{{ viewingNote.owner.firstName }} {{ viewingNote.owner.lastName }}</span>
+            </div>
+            <div class="meta-item" *ngIf="viewingNote.tags && viewingNote.tags.length > 0">
+              <span class="meta-label">Tags:</span>
+              <div class="tags-display">
+                <span class="tag" *ngFor="let tag of viewingNote.tags">#{{ tag }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="content-section">
+            <h4>Content:</h4>
+            <div class="content-display">{{ viewingNote?.content }}</div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" (click)="closeViewModal()">Close</button>
+          <button class="btn btn-primary" (click)="editFromView(viewingNote?._id)">Edit Note</button>
         </div>
       </div>
     </div>

@@ -1,67 +1,173 @@
 <div class="dashboard-container">
   <div class="dashboard-header">
     <h1>Admin Dashboard 👑</h1>
-    <p>Manage users, view analytics, and oversee the notes system</p>
+    <p>Welcome back, {{ currentUser?.firstName }}! Here's your system overview.</p>
   </div>
 
-  <div class="stats-grid" *ngIf="!isLoading">
-    <div class="stat-card">
-      <div class="stat-icon">👥</div>
-      <div class="stat-content">
-        <h3>{{ stats.totalUsers || 0 }}</h3>
-        <p>Total Users</p>
-      </div>
-    </div>
-
-    <div class="stat-card">
-      <div class="stat-icon">📝</div>
-      <div class="stat-content">
-        <h3>{{ stats.totalNotes || 0 }}</h3>
-        <p>Total Notes</p>
-      </div>
-    </div>
-
-    <div class="stat-card">
-      <div class="stat-icon">✅</div>
-      <div class="stat-content">
-        <h3>{{ stats.activeUsers || 0 }}</h3>
-        <p>Active Users</p>
-      </div>
-    </div>
-
-    <div class="stat-card">
-      <div class="stat-icon">📦</div>
-      <div class="stat-content">
-        <h3>{{ stats.archivedNotes || 0 }}</h3>
-        <p>Archived Notes</p>
-      </div>
-    </div>
+  <!-- Loading State -->
+  <div class="loading-state" *ngIf="isLoading">
+    <div class="loading-spinner"></div>
+    <p>Loading dashboard data...</p>
   </div>
 
-  <div class="loading" *ngIf="isLoading">
-    <p>Loading dashboard...</p>
+  <!-- Error State -->
+  <div class="error-state" *ngIf="error && !isLoading">
+    <div class="error-icon">⚠️</div>
+    <h3>{{ error }}</h3>
+    <p>Please check your permissions and try again.</p>
+    <button class="btn btn-primary" (click)="loadDashboardStats(); loadAnalytics()">
+      🔄 Retry
+    </button>
   </div>
 
-  <div class="admin-actions">
-    <h2>Admin Actions</h2>
-    <div class="actions-grid">
-      <a routerLink="/users" class="action-card">
-        <div class="action-icon">👥</div>
-        <h3>Manage Users</h3>
-        <p>Create, edit, and manage user accounts</p>
-      </a>
+  <!-- Dashboard Content -->
+  <div *ngIf="!isLoading && !error">
+    <!-- Main Stats Grid -->
+    <div class="stats-grid">
+      <div class="stat-card primary">
+        <div class="stat-icon">👥</div>
+        <div class="stat-content">
+          <h3>{{ stats.totalUsers || 0 }}</h3>
+          <p>Total Users</p>
+          <div class="stat-sub" *ngIf="stats.activeUsers">
+            <span class="percentage">{{ getActiveUsersPercentage() }}%</span>
+            <span class="sub-text">active users</span>
+          </div>
+        </div>
+      </div>
 
-      <a routerLink="/analytics" class="action-card">
-        <div class="action-icon">📊</div>
-        <h3>View Analytics</h3>
-        <p>See charts and reports on app usage</p>
-      </a>
+      <div class="stat-card success">
+        <div class="stat-icon">📝</div>
+        <div class="stat-content">
+          <h3>{{ stats.totalNotes || 0 }}</h3>
+          <p>Total Notes</p>
+          <div class="stat-sub" *ngIf="notesPerDay.length > 0">
+            <span class="percentage">+{{ getTotalNotesThisWeek() }}</span>
+            <span class="sub-text">this week</span>
+          </div>
+        </div>
+      </div>
 
-      <a routerLink="/notes" class="action-card">
-        <div class="action-icon">📝</div>
-        <h3>All Notes</h3>
-        <p>View and manage all notes in the system</p>
-      </a>
+      <div class="stat-card info">
+        <div class="stat-icon">✅</div>
+        <div class="stat-content">
+          <h3>{{ stats.activeUsers || 0 }}</h3>
+          <p>Active Users</p>
+          <div class="stat-sub">
+            <span class="percentage">{{ getActiveUsersPercentage() }}%</span>
+            <span class="sub-text">of total users</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stat-card warning">
+        <div class="stat-icon">📦</div>
+        <div class="stat-content">
+          <h3>{{ stats.archivedNotes || 0 }}</h3>
+          <p>Archived Notes</p>
+          <div class="stat-sub">
+            <span class="percentage">{{ getArchivedNotesPercentage() }}%</span>
+            <span class="sub-text">of total notes</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Analytics Section -->
+    <div class="analytics-section">
+      <h2>📈 Analytics</h2>
+      
+      <div class="analytics-grid">
+        <!-- Notes Activity Chart -->
+        <div class="analytics-card">
+          <h3>📊 Notes Created (Last 7 Days)</h3>
+          <div class="chart-container" *ngIf="notesPerDay.length > 0">
+            <div class="bar-chart">
+              <div class="chart-bar" *ngFor="let day of notesPerDay">
+                <div class="bar" [style.height.%]="day.count > 0 ? (day.count / getMaxNotesPerDay()) * 100 : 5">
+                  <span class="bar-value">{{ day.count }}</span>
+                </div>
+                <div class="bar-label">{{ formatDate(day.date) }}</div>
+              </div>
+            </div>
+          </div>
+          <div class="no-data" *ngIf="notesPerDay.length === 0">
+            <p>No data available</p>
+          </div>
+        </div>
+
+        <!-- Most Active Users -->
+        <div class="analytics-card">
+          <h3>🏆 Most Active Users</h3>
+          <div class="users-list" *ngIf="mostActiveUsers.length > 0">
+            <div class="user-item" *ngFor="let user of mostActiveUsers; let i = index">
+              <div class="user-rank">#{{ i + 1 }}</div>
+              <div class="user-info">
+                <div class="user-name">{{ user.firstName }} {{ user.lastName }}</div>
+                <div class="user-email">{{ user.email }}</div>
+              </div>
+              <div class="user-stats">
+                <span class="notes-count">{{ user.notesCount }} notes</span>
+              </div>
+            </div>
+          </div>
+          <div class="no-data" *ngIf="mostActiveUsers.length === 0">
+            <p>No active users found</p>
+          </div>
+        </div>
+
+        <!-- Most Used Tags -->
+        <div class="analytics-card">
+          <h3>🏷️ Popular Tags</h3>
+          <div class="tags-list" *ngIf="mostUsedTags.length > 0">
+            <div class="tag-item" *ngFor="let tagData of mostUsedTags">
+              <div class="tag-name">#{{ tagData.tag }}</div>
+              <div class="tag-count">{{ tagData.count }} uses</div>
+              <div class="tag-bar">
+                <div class="tag-progress" [style.width.%]="(tagData.count / mostUsedTags[0].count) * 100"></div>
+              </div>
+            </div>
+          </div>
+          <div class="no-data" *ngIf="mostUsedTags.length === 0">
+            <p>No tags found</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Admin Actions -->
+    <div class="admin-actions">
+      <h2>🔧 Quick Actions</h2>
+      <div class="actions-grid">
+        <a routerLink="/users" class="action-card">
+          <div class="action-icon">👥</div>
+          <h3>Manage Users</h3>
+          <p>Create, edit, and manage user accounts</p>
+          <div class="action-count">{{ stats.totalUsers || 0 }} users</div>
+        </a>
+
+        <a routerLink="/analytics" class="action-card">
+          <div class="action-icon">📊</div>
+          <h3>View Analytics</h3>
+          <p>See detailed charts and reports</p>
+          <div class="action-count">Advanced charts</div>
+        </a>
+
+        <a routerLink="/notes" class="action-card">
+          <div class="action-icon">📝</div>
+          <h3>All Notes</h3>
+          <p>View and manage all notes in the system</p>
+          <div class="action-count">{{ stats.totalNotes || 0 }} notes</div>
+        </a>
+
+        <div class="action-card" (click)="loadAnalytics()">
+          <div class="action-icon">🔄</div>
+          <h3>Refresh Data</h3>
+          <p>Update dashboard with latest information</p>
+          <div class="action-count" *ngIf="!loadingAnalytics">Click to refresh</div>
+          <div class="action-count loading" *ngIf="loadingAnalytics">Refreshing...</div>
+        </div>
+      </div>
     </div>
   </div>
 </div>

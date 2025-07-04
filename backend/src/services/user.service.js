@@ -90,6 +90,57 @@ const userService = {
       throw new Error('User not found');
     }
     return user;
+  },
+
+  async addSharingRestriction(userId, restrictedUserId) {
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const restrictedUser = await User.findById(restrictedUserId);
+    if (!restrictedUser) {
+      throw new Error('Restricted user not found');
+    }
+
+    // Check if restriction already exists
+    if (user.sharingRestrictedUsers.includes(restrictedUserId)) {
+      throw new Error('Sharing restriction already exists');
+    }
+
+    user.sharingRestrictedUsers.push(restrictedUserId);
+    await user.save();
+
+    return { message: 'Sharing restriction added successfully' };
+  },
+
+  async removeSharingRestriction(userId, restrictedUserId) {
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    user.sharingRestrictedUsers = user.sharingRestrictedUsers.filter(
+      id => id.toString() !== restrictedUserId
+    );
+    await user.save();
+
+    return { message: 'Sharing restriction removed successfully' };
+  },
+
+  async getSharingRestrictions(userId) {
+    const user = await User.findById(userId)
+      .populate('sharingRestrictedUsers', '-password')
+      .select('-password');
+    
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    return {
+      user: user,
+      restrictedUsers: user.sharingRestrictedUsers || []
+    };
   }
 };
 

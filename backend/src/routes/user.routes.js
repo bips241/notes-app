@@ -50,4 +50,9 @@ router.put('/:id', updateUserValidation, userController.updateUser);
 router.patch('/:id/deactivate', userController.deactivateUser);
 router.patch('/:id/activate', userController.activateUser);
 
+// Sharing restrictions routes
+router.get('/:userId/sharing-restrictions', userController.getSharingRestrictions);
+router.post('/:userId/sharing-restrictions', userController.addSharingRestriction);
+router.delete('/:userId/sharing-restrictions/:restrictedUserId', userController.removeSharingRestriction);
+
 module.exports = router;

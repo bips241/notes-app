@@ -6,6 +6,7 @@ export interface User {
   lastName: string;
   role: 'admin' | 'user';
   isActive: boolean;
+  sharingRestrictedUsers?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -73,9 +74,24 @@ export interface NotesResponse {
   };
 }
 
+export interface UsersResponse {
+  users: User[];
+  pagination: {
+    total: number;
+    page: number;
+    pages: number;
+    limit: number;
+  };
+}
+
 export interface AnalyticsData {
   activeUsers: any[];
   popularTags: any[];
   notesPerDay: any[];
   dashboardStats: any;
+}
+
+export interface SharingRestrictionsResponse {
+  user: User;
+  restrictedUsers: User[];
 }

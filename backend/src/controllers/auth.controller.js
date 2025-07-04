@@ -15,7 +15,7 @@ const authController = {
       const { user, token } = await authService.register(req.body);
       
       res.status(201).json({
-        message: 'User registered successfully',
+        message: 'User created successfully',
         user,
         token
       });
@@ -54,9 +54,19 @@ const authController = {
     } catch (error) {
       next(error);
     }
+  },
+
+  async updateProfile(req, res, next) {
+    try {
+      const user = await authService.updateProfile(req.user._id, req.body);
+      res.json({ 
+        message: 'Profile updated successfully',
+        user 
+      });
+    } catch (error) {
+      next(error);
+    }
   }
 };
-
-module.exports = authController;
 
 module.exports = authController;

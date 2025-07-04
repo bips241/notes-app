@@ -9,8 +9,9 @@ import { AdminDashboardComponent } from './dashboard/admin-dashboard/admin-dashb
 import { NotesListComponent } from './notes/notes-list/notes-list';
 import { NoteFormComponent } from './notes/note-form/note-form';
 import { SharedWithMeComponent } from './notes/shared-with-me/shared-with-me';
+import { ArchivedNotesComponent } from './notes/archived-notes/archived-notes';
 import { UsersManagementComponent } from './users/users-management/users-management';
-import { AnalyticsDashboardComponent } from './analytics/analytics-dashboard/analytics-dashboard';
+import { AnalyticsDashboardFinalComponent } from './analytics/analytics-dashboard/analytics-dashboard-final';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
@@ -51,13 +52,18 @@ export const routes: Routes = [
     canActivate: [AuthGuard]
   },
   { 
+    path: 'archived-messages', 
+    component: ArchivedNotesComponent,
+    canActivate: [AuthGuard]
+  },
+  { 
     path: 'users', 
     component: UsersManagementComponent,
     canActivate: [AuthGuard, AdminGuard]
   },
   { 
     path: 'analytics', 
-    component: AnalyticsDashboardComponent,
+    component: AnalyticsDashboardFinalComponent,
     canActivate: [AuthGuard, AdminGuard]
   },
   
