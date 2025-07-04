@@ -80,4 +80,21 @@ userSchema.methods.toJSON = function() {
   return userObject;
 };
 
+// Add indexes for better search performance
+// Note: email and username already have unique indexes from schema definition
+userSchema.index({ firstName: 1 });
+userSchema.index({ lastName: 1 });
+userSchema.index({ isActive: 1 });
+
+// Compound text index for search operations
+userSchema.index({
+  email: 'text',
+  username: 'text',
+  firstName: 'text',
+  lastName: 'text'
+});
+
+// Compound index for active user searches
+userSchema.index({ isActive: 1, firstName: 1, lastName: 1 });
+
 module.exports = mongoose.model('User', userSchema);

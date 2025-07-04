@@ -141,6 +141,65 @@ const userService = {
       user: user,
       restrictedUsers: user.sharingRestrictedUsers || []
     };
+  },
+
+  async searchUsers(searchTerm, limit = 10) {
+    if (!searchTerm || searchTerm.length < 1) {
+      return [];
+    }
+
+    // Use text search for better performance with indexes
+    const textSearchQuery = {
+      isActive: true,
+      $text: { $search: searchTerm }
+    };
+
+    // Fallback to regex search if text search doesn't find results
+    const regexSearchQuery = {
+      isActive: true,
+      $or: [
+        { email: { $regex: `^${searchTerm}`, $options: 'i' } }, // Prefix match is faster
+        { firstName: { $regex: `^${searchTerm}`, $options: 'i' } },
+        { lastName: { $regex: `^${searchTerm}`, $options: 'i' } },
+        { username: { $regex: `^${searchTerm}`, $options: 'i' } }
+      ]
+    };
+
+    try {
+      // Try text search first (uses indexes)
+      let users = await User.find(textSearchQuery)
+        .select('_id username email firstName lastName')
+        .limit(parseInt(limit))
+        .sort({ score: { $meta: 'textScore' } });
+
+      // If text search doesn't find enough results, try regex search
+      if (users.length < limit) {
+        const remainingLimit = limit - users.length;
+        const existingIds = users.map(u => u._id);
+        
+        const regexUsers = await User.find({
+          ...regexSearchQuery,
+          _id: { $nin: existingIds }
+        })
+          .select('_id username email firstName lastName')
+          .limit(remainingLimit)
+          .sort({ firstName: 1, lastName: 1 });
+
+        users = users.concat(regexUsers);
+      }
+
+      return users;
+    } catch (error) {
+      // If text search fails, fall back to regex search
+      console.warn('Text search failed, falling back to regex search:', error.message);
+      
+      const users = await User.find(regexSearchQuery)
+        .select('_id username email firstName lastName')
+        .limit(parseInt(limit))
+        .sort({ firstName: 1, lastName: 1 });
+
+      return users;
+    }
   }
 };
 

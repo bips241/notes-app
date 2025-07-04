@@ -4,8 +4,11 @@ const { validationResult } = require('express-validator');
 const notesController = {
   async createNote(req, res, next) {
     try {
+      console.log('📝 Creating note with data:', req.body);
+      
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
+        console.log('❌ Validation errors:', errors.array());
         return res.status(400).json({
           message: 'Validation failed',
           errors: errors.array()
@@ -19,19 +22,21 @@ const notesController = {
         note
       });
     } catch (error) {
+      console.error('❌ Error creating note:', error);
       next(error);
     }
   },
 
   async getNotes(req, res, next) {
     try {
-      const { page, limit, search, tags, isArchived, includeShared } = req.query;
+      const { page, limit, search, tags, isArchived, includeShared, includeArchived } = req.query;
       const options = { 
         page, 
         limit, 
         search, 
         isArchived,
-        includeShared: includeShared !== 'false' // Default to true unless explicitly set to false
+        includeShared: includeShared !== 'false', // Default to true unless explicitly set to false
+        includeArchived: includeArchived === 'true' // Default to false unless explicitly set to true
       };
       
       if (tags) {
@@ -139,15 +144,12 @@ const notesController = {
 
   async unarchiveNote(req, res, next) {
     try {
-      console.log('🔄 Unarchiving note:', req.params.id, 'for user:', req.user._id);
       const note = await notesService.unarchiveNote(req.params.id, req.user._id);
-      console.log('✅ Note unarchived successfully:', note._id);
       res.json({
         message: 'Note unarchived successfully',
         note
       });
     } catch (error) {
-      console.error('❌ Error unarchiving note:', error.message);
       next(error);
     }
   },

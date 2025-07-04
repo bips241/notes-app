@@ -335,6 +335,12 @@ export class AnalyticsDashboardFinalComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
+    const currentUser = this.authService.currentUserValue;
+    if (!currentUser) {
+      this.router.navigate(['/auth/login']);
+      return;
+    }
+    
     this.loadAnalytics();
   }
 
@@ -345,6 +351,8 @@ export class AnalyticsDashboardFinalComponent implements OnInit, OnDestroy {
   loadAnalytics() {
     this.isLoading = true;
     this.error = '';
+    const currentUser = this.authService.currentUserValue;
+    const isAdmin = currentUser?.role === 'admin';
 
     // Load all analytics data
     const statsSubscription = this.analyticsService.getDashboardStats().subscribe({
@@ -359,39 +367,46 @@ export class AnalyticsDashboardFinalComponent implements OnInit, OnDestroy {
       }
     });
 
-    const usersSubscription = this.analyticsService.getMostActiveUsers().subscribe({
-      next: (response) => {
-        this.mostActiveUsers = response.users || [];
-        this.updateCharts();
-      },
-      error: (error) => {
-        console.error('Error loading active users:', error);
-      }
-    });
+    // Only load admin-specific analytics if user is admin
+    if (isAdmin) {
+      const usersSubscription = this.analyticsService.getMostActiveUsers().subscribe({
+        next: (response) => {
+          this.mostActiveUsers = response.users || [];
+          this.updateCharts();
+        },
+        error: (error) => {
+          console.error('Error loading active users:', error);
+        }
+      });
 
-    const tagsSubscription = this.analyticsService.getMostUsedTags().subscribe({
-      next: (response) => {
-        this.mostUsedTags = response.tags || [];
-        this.updateCharts();
-      },
-      error: (error) => {
-        console.error('Error loading popular tags:', error);
-      }
-    });
+      const tagsSubscription = this.analyticsService.getMostUsedTags().subscribe({
+        next: (response) => {
+          this.mostUsedTags = response.tags || [];
+          this.updateCharts();
+        },
+        error: (error) => {
+          console.error('Error loading popular tags:', error);
+        }
+      });
 
-    const notesSubscription = this.analyticsService.getNotesPerDay().subscribe({
-      next: (response) => {
-        this.notesPerDay = response.data || [];
-        this.updateCharts();
-        this.isLoading = false;
-      },
-      error: (error) => {
-        console.error('Error loading notes per day:', error);
-        this.isLoading = false;
-      }
-    });
+      const notesSubscription = this.analyticsService.getNotesPerDay().subscribe({
+        next: (response) => {
+          this.notesPerDay = response.data || [];
+          this.updateCharts();
+          this.isLoading = false;
+        },
+        error: (error) => {
+          console.error('Error loading notes per day:', error);
+          this.isLoading = false;
+        }
+      });
 
-    this.subscriptions.push(statsSubscription, usersSubscription, tagsSubscription, notesSubscription);
+      this.subscriptions.push(statsSubscription, usersSubscription, tagsSubscription, notesSubscription);
+    } else {
+      // For regular users, just load basic stats
+      this.subscriptions.push(statsSubscription);
+      this.isLoading = false;
+    }
   }
 
   updateCharts() {
@@ -642,5 +657,10 @@ export class AnalyticsDashboardFinalComponent implements OnInit, OnDestroy {
     if (!this.mostActiveUsers.length) return 0;
     const maxNotes = Math.max(...this.mostActiveUsers.map(u => u.notesCount));
     return maxNotes > 0 ? (notesCount / maxNotes) * 100 : 0;
+  }
+
+  // Helper method to check if current user is admin
+  isAdmin(): boolean {
+    return this.authService.currentUserValue?.role === 'admin';
   }
 }

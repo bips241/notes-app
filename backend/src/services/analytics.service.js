@@ -1,5 +1,6 @@
 const Note = require('../models/notes.model');
 const User = require('../models/user.model');
+const mongoose = require('mongoose');
 
 const analyticsService = {
   async getMostActiveUsers(limit = 10) {
@@ -126,20 +127,46 @@ const analyticsService = {
   async getDashboardStats(userId, userRole) {
     const stats = {};
 
+    // Convert userId to ObjectId if it's a string
+    const userObjectId = typeof userId === 'string' ? new mongoose.Types.ObjectId(userId) : userId;
+
     if (userRole === 'admin') {
-      // Admin stats
-      stats.totalUsers = await User.countDocuments();
-      stats.totalNotes = await Note.countDocuments();
-      stats.activeUsers = await User.countDocuments({ isActive: true });
-      stats.archivedNotes = await Note.countDocuments({ isArchived: true });
+      // Admin stats - ensure all promises resolve properly
+      const [totalUsers, totalNotes, activeUsers, archivedNotes, totalSharedNotes] = await Promise.all([
+        User.countDocuments(),
+        Note.countDocuments(),
+        User.countDocuments({ isActive: true }),
+        Note.countDocuments({ isArchived: true }),
+        Note.countDocuments({ 'sharedWith.0': { $exists: true } })
+      ]);
+
+      stats.totalUsers = totalUsers;
+      stats.totalNotes = totalNotes;
+      stats.activeUsers = activeUsers;
+      stats.archivedNotes = archivedNotes;
+      stats.totalSharedNotes = totalSharedNotes;
+      
     } else {
-      // User stats
-      stats.myNotes = await Note.countDocuments({ owner: userId });
-      stats.sharedWithMe = await Note.countDocuments({ 'sharedWith.user': userId });
-      stats.archivedNotes = await Note.countDocuments({ 
-        owner: userId, 
-        isArchived: true 
-      });
+      // User stats - ensure all promises resolve properly
+      const [myNotes, sharedWithMe, archivedNotes] = await Promise.all([
+        Note.countDocuments({ 
+          owner: userObjectId, 
+          isArchived: false 
+        }),
+        Note.countDocuments({ 
+          'sharedWith.user': userObjectId,
+          owner: { $ne: userObjectId },
+          isArchived: false
+        }),
+        Note.countDocuments({ 
+          owner: userObjectId, 
+          isArchived: true 
+        })
+      ]);
+
+      stats.myNotes = myNotes;
+      stats.sharedWithMe = sharedWithMe;
+      stats.archivedNotes = archivedNotes;
     }
 
     return stats;

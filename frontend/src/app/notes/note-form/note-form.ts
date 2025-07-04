@@ -101,6 +101,21 @@ export class NoteFormComponent implements OnInit {
     this.notesService.getNoteById(this.noteId).subscribe({
       next: (response) => {
         const note = response.note;
+        
+        // Check if user has write permission for this note
+        const currentUser = this.authService.currentUserValue;
+        const isOwner = note.owner._id === currentUser?._id;
+        const hasWritePermission = note.sharedWith?.some(share => 
+          share.user._id === currentUser?._id && share.permission === 'write'
+        );
+        
+        if (!isOwner && !hasWritePermission) {
+          alert('You do not have permission to edit this note.');
+          this.router.navigate(['/notes']);
+          this.isLoading = false;
+          return;
+        }
+        
         this.noteForm.patchValue({
           title: note.title,
           content: note.content,
@@ -129,8 +144,13 @@ export class NoteFormComponent implements OnInit {
       const noteData = {
         title: this.noteForm.value.title,
         content: this.noteForm.value.content,
-        tags: this.noteForm.value.tags ? this.noteForm.value.tags.split(',').map((tag: string) => tag.trim()) : []
+        tags: this.noteForm.value.tags ? this.noteForm.value.tags.split(',').map((tag: string) => tag.trim()).filter((tag: string) => tag.length > 0) : []
       };
+      
+      console.log('📝 Note data being sent:', noteData);
+      console.log('📝 Form values:', this.noteForm.value);
+      console.log('📝 Form valid:', this.noteForm.valid);
+      console.log('📝 Form errors:', this.noteForm.errors);
       
       if (this.isEditMode && this.noteId) {
         // Update existing note

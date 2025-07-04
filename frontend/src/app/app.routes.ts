@@ -6,6 +6,8 @@ import { LoginComponent } from './auth/login/login';
 import { RegisterComponent } from './auth/register/register';
 import { UserDashboardComponent } from './dashboard/user-dashboard/user-dashboard';
 import { AdminDashboardComponent } from './dashboard/admin-dashboard/admin-dashboard';
+import { DashboardRedirectComponent } from './shared/components/dashboard-redirect.component';
+import { ProfileComponent } from './profile/profile.component';
 import { NotesListComponent } from './notes/notes-list/notes-list';
 import { NoteFormComponent } from './notes/note-form/note-form';
 import { SharedWithMeComponent } from './notes/shared-with-me/shared-with-me';
@@ -14,7 +16,11 @@ import { UsersManagementComponent } from './users/users-management/users-managem
 import { AnalyticsDashboardFinalComponent } from './analytics/analytics-dashboard/analytics-dashboard-final';
 
 export const routes: Routes = [
-  { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
+  { 
+    path: '', 
+    component: DashboardRedirectComponent,
+    canActivate: [AuthGuard]
+  },
   
   // Auth routes
   { path: 'auth/login', component: LoginComponent },
@@ -30,6 +36,11 @@ export const routes: Routes = [
     path: 'admin-dashboard', 
     component: AdminDashboardComponent,
     canActivate: [AuthGuard, AdminGuard]
+  },
+  { 
+    path: 'profile', 
+    component: ProfileComponent,
+    canActivate: [AuthGuard]
   },
   { 
     path: 'notes', 

@@ -7,8 +7,7 @@ import { AuthService } from '../../shared/services/auth.service';
 import { UserService } from '../../shared/services/user.service';
 import { Note, User } from '../../shared/models/interfaces';
 import { Router } from '@angular/router';
-import { Subscription } from 'rxjs';
-import { debounceTime, distinctUntilChanged, Subject } from 'rxjs';
+import { Subscription, Subject } from 'rxjs';
 
 @Component({
   selector: 'app-notes-list',
@@ -35,6 +34,10 @@ export class NotesListComponent implements OnInit, OnDestroy {
   showSearchDropdown = false;
   isSearching = false;
   
+  // View modal enhancements
+  isFullscreen = false;
+  contentMode: 'formatted' | 'raw' = 'formatted';
+  
   private searchSubject = new Subject<string>();
   private subscriptions: Subscription[] = [];
 
@@ -44,13 +47,20 @@ export class NotesListComponent implements OnInit, OnDestroy {
     private userService: UserService,
     private router: Router
   ) {
-    // Setup search debouncing
+    // Setup search debouncing using the user service
     this.subscriptions.push(
-      this.searchSubject.pipe(
-        debounceTime(300),
-        distinctUntilChanged()
-      ).subscribe(searchTerm => {
-        this.searchUsers(searchTerm);
+      this.userService.searchUsersWithDebounce(this.searchSubject.asObservable()).subscribe({
+        next: (response) => {
+          this.searchResults = response.users || [];
+          this.showSearchDropdown = this.searchResults.length > 0;
+          this.isSearching = false;
+        },
+        error: (error) => {
+          console.error('Error searching users:', error);
+          this.isSearching = false;
+          this.searchResults = [];
+          this.showSearchDropdown = false;
+        }
       })
     );
   }
@@ -108,7 +118,26 @@ export class NotesListComponent implements OnInit, OnDestroy {
     }
   }
 
+  shareFromView(note: Note) {
+    // Close the view modal first
+    this.closeViewModal();
+    // Then open the share modal
+    this.shareNote(note);
+  }
+
   shareNote(note: Note) {
+    // Check if current user is the owner or has write permission
+    const isOwner = note.owner._id === this.authService.currentUserValue?._id;
+    const hasWritePermission = note.sharedWith?.some(share => 
+      share.user._id === this.authService.currentUserValue?._id && 
+      share.permission === 'write'
+    );
+    
+    if (!isOwner && !hasWritePermission) {
+      alert('You can only share notes you own or have write permission to.');
+      return;
+    }
+    
     this.selectedNote = note;
     this.shareForm.userEmail = '';
     this.shareForm.permission = 'read';
@@ -180,16 +209,70 @@ export class NotesListComponent implements OnInit, OnDestroy {
   removeShare(userId: string) {
     if (!this.selectedNote) return;
     
+    // Check if current user is the owner
+    if (this.selectedNote.owner._id !== this.authService.currentUserValue?._id) {
+      alert('You can only remove access from notes you own.');
+      return;
+    }
+    
     if (confirm('Are you sure you want to remove access for this user?')) {
       this.notesService.removeShare(this.selectedNote._id, userId).subscribe({
         next: () => {
           alert('Access removed successfully!');
           this.loadNotes(); // Refresh to show updated share info
-          this.closeShareModal();
+          
+          // Update the selected note to reflect the change immediately
+          if (this.selectedNote) {
+            this.selectedNote.sharedWith = this.selectedNote.sharedWith.filter(
+              share => share.user._id !== userId
+            );
+          }
         },
         error: (error) => {
           console.error('Error removing share:', error);
-          alert('Failed to remove access. Please try again.');
+          if (error.status === 403 || error.status === 401) {
+            alert('You do not have permission to remove this share.');
+          } else if (error.status === 404) {
+            alert('Note or user not found.');
+          } else {
+            alert('Failed to remove access. Please try again.');
+          }
+        }
+      });
+    }
+  }
+
+  removeShareFromView(userId: string) {
+    if (!this.viewingNote) return;
+    
+    // Check if current user is the owner
+    if (this.viewingNote.owner._id !== this.authService.currentUserValue?._id) {
+      alert('You can only remove access from notes you own.');
+      return;
+    }
+    
+    if (confirm('Are you sure you want to remove access for this user?')) {
+      this.notesService.removeShare(this.viewingNote._id, userId).subscribe({
+        next: () => {
+          alert('Access removed successfully!');
+          this.loadNotes(); // Refresh to show updated share info
+          
+          // Update the viewing note to reflect the change immediately
+          if (this.viewingNote) {
+            this.viewingNote.sharedWith = this.viewingNote.sharedWith.filter(
+              share => share.user._id !== userId
+            );
+          }
+        },
+        error: (error) => {
+          console.error('Error removing share:', error);
+          if (error.status === 403 || error.status === 401) {
+            alert('You do not have permission to remove this share.');
+          } else if (error.status === 404) {
+            alert('Note or user not found.');
+          } else {
+            alert('Failed to remove access. Please try again.');
+          }
         }
       });
     }
@@ -212,6 +295,8 @@ export class NotesListComponent implements OnInit, OnDestroy {
   closeViewModal() {
     this.showViewModal = false;
     this.viewingNote = null;
+    this.isFullscreen = false;
+    this.contentMode = 'formatted';
   }
 
   editFromView(noteId: string | undefined) {
@@ -221,58 +306,87 @@ export class NotesListComponent implements OnInit, OnDestroy {
     }
   }
 
-  archiveNote(noteId: string) {
-    if (confirm('Are you sure you want to archive this note?')) {
-      this.notesService.archiveNote(noteId).subscribe({
-        next: () => {
-          this.loadNotes(); // Refresh the list
-        },
-        error: (error) => {
-          console.error('Error archiving note:', error);
-          alert('Failed to archive note. Please try again.');
-        }
+  // Enhanced view modal methods
+  toggleFullscreen() {
+    this.isFullscreen = !this.isFullscreen;
+  }
+
+  toggleContentMode() {
+    this.contentMode = this.contentMode === 'formatted' ? 'raw' : 'formatted';
+  }
+
+  copyNoteContent() {
+    if (this.viewingNote) {
+      const content = `${this.viewingNote.title}\n\n${this.viewingNote.content}`;
+      navigator.clipboard.writeText(content).then(() => {
+        // You could add a toast notification here
+        console.log('Note content copied to clipboard');
+      }).catch(err => {
+        console.error('Failed to copy content: ', err);
       });
     }
   }
 
-  searchUsers(searchTerm: string) {
-    if (!searchTerm.trim()) {
-      this.searchResults = [];
-      this.showSearchDropdown = false;
-      return;
-    }
-
-    this.isSearching = true;
-    this.userService.searchUsers(searchTerm).subscribe({
-      next: (response: any) => {
-        this.searchResults = response.users || [];
-        this.showSearchDropdown = this.searchResults.length > 0;
-        this.isSearching = false;
-      },
-      error: (error: any) => {
-        console.error('Error searching users:', error);
-        this.isSearching = false;
+  printNote() {
+    if (this.viewingNote) {
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        const printContent = `
+          <html>
+            <head>
+              <title>${this.viewingNote.title}</title>
+              <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                h1 { color: #333; border-bottom: 2px solid #667eea; padding-bottom: 10px; }
+                .meta { background: #f5f5f5; padding: 15px; margin: 20px 0; border-radius: 5px; }
+                .meta-item { margin: 5px 0; }
+                .meta-label { font-weight: bold; }
+                .content { margin-top: 20px; line-height: 1.6; }
+                .tags { margin-top: 10px; }
+                .tag { background: #e3f2fd; padding: 3px 8px; margin: 2px; border-radius: 12px; font-size: 0.8em; }
+                pre { white-space: pre-wrap; word-wrap: break-word; }
+              </style>
+            </head>
+            <body>
+              <h1>${this.viewingNote.title}</h1>
+              <div class="meta">
+                <div class="meta-item"><span class="meta-label">Created:</span> ${new Date(this.viewingNote.createdAt).toLocaleString()}</div>
+                <div class="meta-item"><span class="meta-label">Updated:</span> ${new Date(this.viewingNote.updatedAt).toLocaleString()}</div>
+                ${this.viewingNote.owner._id !== this.authService.currentUserValue?._id 
+                  ? `<div class="meta-item"><span class="meta-label">Owner:</span> ${this.viewingNote.owner.firstName} ${this.viewingNote.owner.lastName}</div>`
+                  : ''}
+                ${this.viewingNote.tags && this.viewingNote.tags.length > 0 
+                  ? `<div class="meta-item"><span class="meta-label">Tags:</span> ${this.viewingNote.tags.map(tag => `<span class="tag">#${tag}</span>`).join('')}</div>`
+                  : ''}
+              </div>
+              <div class="content">
+                <h2>Content:</h2>
+                <pre>${this.viewingNote.content}</pre>
+              </div>
+            </body>
+          </html>
+        `;
+        printWindow.document.write(printContent);
+        printWindow.document.close();
+        printWindow.print();
       }
-    });
+    }
   }
 
-  onUserEmailInput() {
-    this.userSearchTerm = this.shareForm.userEmail;
-    this.searchSubject.next(this.userSearchTerm);
-  }
-
-  selectUser(user: User) {
-    this.shareForm.userEmail = user.email;
-    this.userSearchTerm = user.email;
-    this.showSearchDropdown = false;
-    this.searchResults = [];
-  }
-
-  hideSearchDropdown() {
-    // Delay hiding to allow click events to process
-    setTimeout(() => {
-      this.showSearchDropdown = false;
-    }, 200);
+  getFormattedContent(content: string | undefined): string {
+    if (!content) return '';
+    
+    // Simple markdown-like formatting
+    return content
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold
+      .replace(/\*(.*?)\*/g, '<em>$1</em>') // Italic
+      .replace(/`(.*?)`/g, '<code>$1</code>') // Inline code
+      .replace(/\n/g, '<br>') // Line breaks
+      .replace(/^# (.*$)/gm, '<h1>$1</h1>') // H1
+      .replace(/^## (.*$)/gm, '<h2>$1</h2>') // H2
+      .replace(/^### (.*$)/gm, '<h3>$1</h3>') // H3
+      .replace(/^- (.*$)/gm, '<li>$1</li>') // List items
+      .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>'); // Wrap lists
   }
 
   getUserDisplayName(user: User): string {
@@ -282,13 +396,77 @@ export class NotesListComponent implements OnInit, OnDestroy {
     return user.username || user.email;
   }
 
-  getUserInitials(user: User): string {
-    if (user.firstName && user.lastName) {
-      return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
+  getUserInitials(user: any): string {
+    if (!user || !user.firstName || !user.lastName) return '?';
+    return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
+  }
+
+  // Missing methods referenced in template
+  archiveNote(noteId: string) {
+    if (confirm('Are you sure you want to archive this note?')) {
+      this.notesService.archiveNote(noteId).subscribe({
+        next: () => {
+          console.log('Note archived successfully');
+          this.loadNotes();
+        },
+        error: (error) => {
+          console.error('Error archiving note:', error);
+        }
+      });
     }
-    if (user.email) {
-      return user.email.substring(0, 2).toUpperCase();
-    }
-    return 'U';
+  }
+
+  onUserEmailInput() {
+    this.userSearchTerm = this.shareForm.userEmail;
+    this.isSearching = true;
+    this.searchSubject.next(this.userSearchTerm);
+  }
+
+  hideSearchDropdown() {
+    // Increased delay to allow click events to process properly
+    setTimeout(() => {
+      this.showSearchDropdown = false;
+      this.searchResults = [];
+    }, 300);
+  }
+
+  selectUser(user: User) {
+    this.shareForm.userEmail = user.email;
+    this.userSearchTerm = user.email;
+    this.showSearchDropdown = false;
+    this.searchResults = [];
+  }
+
+  preventDropdownClose(event: Event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  // Permission checking methods for template
+  canEditNote(note: Note): boolean {
+    return note.owner._id === this.authService.currentUserValue?._id || 
+           (note.sharedWith && note.sharedWith.some(share => 
+             share.user._id === this.authService.currentUserValue?._id && 
+             share.permission === 'write'));
+  }
+
+  canShareNote(note: Note): boolean {
+    return note.owner._id === this.authService.currentUserValue?._id;
+  }
+
+  canDeleteNote(note: Note): boolean {
+    return note.owner._id === this.authService.currentUserValue?._id;
+  }
+
+  canArchiveNote(note: Note): boolean {
+    return note.owner._id === this.authService.currentUserValue?._id;
+  }
+
+  isNoteOwner(note: Note | null): boolean {
+    return note?.owner._id === this.authService.currentUserValue?._id;
+  }
+
+  isNotNoteOwner(note: Note | null): boolean {
+    return note?.owner._id !== this.authService.currentUserValue?._id;
   }
 }

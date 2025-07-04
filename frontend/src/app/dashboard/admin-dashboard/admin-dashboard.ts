@@ -29,7 +29,7 @@ export class AdminDashboardComponent implements OnInit {
 
   ngOnInit() {
     this.currentUser = this.authService.currentUserValue;
-    console.log('👤 Current user:', this.currentUser);
+    console.log('Admin dashboard ngOnInit - Current user:', this.currentUser);
     
     if (!this.currentUser || this.currentUser.role !== 'admin') {
       this.error = 'Access denied. Admin role required.';
@@ -37,20 +37,33 @@ export class AdminDashboardComponent implements OnInit {
       return;
     }
     
+    // Load dashboard data
     this.loadDashboardStats();
     this.loadAnalytics();
   }
 
   loadDashboardStats() {
-    console.log('📊 Loading dashboard stats...');
+    this.isLoading = true;
+    console.log('Loading dashboard stats for admin...');
     this.analyticsService.getDashboardStats().subscribe({
       next: (response) => {
-        console.log('✅ Dashboard stats loaded:', response);
+        console.log('Received dashboard stats:', response.stats);
         this.stats = response.stats || {};
+        
+        // Ensure all expected admin properties exist with default values
+        this.stats = {
+          totalUsers: this.stats.totalUsers || 0,
+          totalNotes: this.stats.totalNotes || 0,
+          activeUsers: this.stats.activeUsers || 0,
+          archivedNotes: this.stats.archivedNotes || 0,
+          totalSharedNotes: this.stats.totalSharedNotes || 0,
+          ...this.stats
+        };
+        console.log('Final admin stats:', this.stats);
         this.isLoading = false;
       },
       error: (error) => {
-        console.error('❌ Error loading dashboard stats:', error);
+        console.error('Error loading dashboard stats:', error);
         this.error = 'Failed to load dashboard statistics';
         this.isLoading = false;
       }
@@ -58,17 +71,14 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   loadAnalytics() {
-    console.log('📈 Loading analytics data...');
     this.loadingAnalytics = true;
     
     // Load most active users
     this.analyticsService.getMostActiveUsers(5).subscribe({
       next: (response) => {
-        console.log('👥 Most active users loaded:', response);
         this.mostActiveUsers = response.users || [];
       },
       error: (error) => {
-        console.error('❌ Error loading active users:', error);
         this.mostActiveUsers = [];
       }
     });
@@ -76,11 +86,9 @@ export class AdminDashboardComponent implements OnInit {
     // Load most used tags
     this.analyticsService.getMostUsedTags(10).subscribe({
       next: (response) => {
-        console.log('🏷️ Most used tags loaded:', response);
         this.mostUsedTags = response.tags || [];
       },
       error: (error) => {
-        console.error('❌ Error loading tags:', error);
         this.mostUsedTags = [];
       }
     });
@@ -88,12 +96,10 @@ export class AdminDashboardComponent implements OnInit {
     // Load notes per day for the last 7 days
     this.analyticsService.getNotesPerDay(7).subscribe({
       next: (response) => {
-        console.log('📈 Notes per day loaded:', response);
         this.notesPerDay = response.data || [];
         this.loadingAnalytics = false;
       },
       error: (error) => {
-        console.error('❌ Error loading notes per day:', error);
         this.notesPerDay = [];
         this.loadingAnalytics = false;
       }

@@ -78,6 +78,21 @@ const userController = {
     }
   },
 
+  async searchUsers(req, res, next) {
+    try {
+      const { q, limit = 10 } = req.query;
+      
+      if (!q || q.trim().length < 1) {
+        return res.json({ users: [] });
+      }
+      
+      const users = await userService.searchUsers(q.trim(), parseInt(limit));
+      res.json({ users });
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async addSharingRestriction(req, res, next) {
     try {
       const { userId } = req.params;

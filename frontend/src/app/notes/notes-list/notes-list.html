@@ -23,10 +23,41 @@
           <span class="badge" *ngIf="hasSharedUsers(note)">🔗 Shared ({{ getSharedCount(note) }})</span>
         </div>
         <div class="note-actions" (click)="$event.stopPropagation()">
-          <button class="btn-icon" (click)="editNote(note._id)" title="Edit note">✏️</button>
-          <button class="btn-icon" (click)="shareNote(note)" title="Share note">🔗</button>
-          <button class="btn-icon" (click)="archiveNote(note._id)" title="Archive note">📥</button>
-          <button class="btn-icon" (click)="deleteNote(note._id)" title="Delete note">🗑️</button>
+          <!-- Edit button: owner or users with write permission -->
+          <button 
+            class="btn-icon" 
+            (click)="editNote(note._id)" 
+            title="Edit note"
+            *ngIf="canEditNote(note)">
+            ✏️
+          </button>
+          
+          <!-- Share button: only for owners -->
+          <button 
+            class="btn-icon" 
+            (click)="shareNote(note)" 
+            title="Share note"
+            *ngIf="canShareNote(note)">
+            🔗
+          </button>
+          
+          <!-- Archive button: owner or users with write permission -->
+          <button 
+            class="btn-icon" 
+            (click)="archiveNote(note._id)" 
+            title="Archive note"
+            *ngIf="canArchiveNote(note)">
+            📥
+          </button>
+          
+          <!-- Delete button: only for owners -->
+          <button 
+            class="btn-icon" 
+            (click)="deleteNote(note._id)" 
+            title="Delete note"
+            *ngIf="canDeleteNote(note)">
+            🗑️
+          </button>
         </div>
       </div>
       <p class="note-content">{{ getPreviewText(note.content) }}</p>
@@ -59,7 +90,8 @@
         <button class="btn-close" (click)="closeShareModal()">×</button>
       </div>
       <div class="modal-content">
-        <form (submit)="shareNoteWithUser($event)" class="share-form">
+        <!-- Only show share form if current user is the owner -->
+        <form (submit)="shareNoteWithUser($event)" class="share-form" *ngIf="isNoteOwner(selectedNote)">
           <div class="form-group">
             <label for="userEmail">User Email</label>
             <div class="search-container">
@@ -75,7 +107,7 @@
                 autocomplete="off"
                 required
               />
-              <div class="search-dropdown" *ngIf="showSearchDropdown">
+              <div class="search-dropdown" *ngIf="showSearchDropdown" (mousedown)="$event.preventDefault()">
                 <div class="search-loading" *ngIf="isSearching">
                   <span class="spinner"></span>
                   <span>Searching users...</span>
@@ -84,7 +116,7 @@
                   <div 
                     class="search-result-item" 
                     *ngFor="let user of searchResults"
-                    (click)="selectUser(user)">
+                    (mousedown)="selectUser(user)">
                     <div class="user-avatar">
                       <span>{{ getUserInitials(user) }}</span>
                     </div>
@@ -113,6 +145,15 @@
           </div>
         </form>
 
+        <!-- Message for non-owners -->
+        <div class="non-owner-message" *ngIf="isNotNoteOwner(selectedNote)">
+          <div class="info-box">
+            <h4>📋 Note Sharing Information</h4>
+            <p>This note is owned by <strong>{{ selectedNote?.owner?.firstName }} {{ selectedNote?.owner?.lastName }}</strong>.</p>
+            <p>Only the owner can add or remove sharing permissions.</p>
+          </div>
+        </div>
+
         <!-- Existing Shares -->
         <div class="existing-shares" *ngIf="hasSharedUsers(selectedNote)">
           <h4>Shared with:</h4>
@@ -122,7 +163,13 @@
                 <strong>{{ share.user.firstName }} {{ share.user.lastName }}</strong>
                 <small>{{ share.user.email }} - {{ share.permission }}</small>
               </div>
-              <button class="btn-icon text-red" (click)="removeShare(share.user._id)" title="Remove access">🗑️</button>
+              <button 
+                class="btn-icon text-red" 
+                (click)="removeShare(share.user._id)" 
+                title="Remove access"
+                *ngIf="isNoteOwner(selectedNote)">
+                🗑️
+              </button>
             </div>
           </div>
         </div>
@@ -132,41 +179,124 @@
 
   <!-- View Note Modal -->
   <div class="modal-overlay" *ngIf="showViewModal" (click)="closeViewModal()">
-    <div class="modal view-modal" (click)="$event.stopPropagation()">
+    <div class="modal view-modal" [class.fullscreen]="isFullscreen" (click)="$event.stopPropagation()">
       <div class="modal-header">
-        <h3>{{ viewingNote?.title }}</h3>
-        <button class="btn-close" (click)="closeViewModal()">×</button>
+        <div class="modal-title-section">
+          <h2 class="modal-title">{{ viewingNote?.title }}</h2>
+          <div class="note-status-badges" *ngIf="viewingNote">
+            <span class="status-badge owner" *ngIf="isNoteOwner(viewingNote)">
+              👤 My Note
+            </span>
+            <span class="status-badge shared" *ngIf="isNotNoteOwner(viewingNote)">
+              📤 Shared by {{ viewingNote.owner.firstName }} {{ viewingNote.owner.lastName }}
+            </span>
+            <span class="status-badge collaborative" *ngIf="hasSharedUsers(viewingNote)">
+              🔗 Shared with {{ getSharedCount(viewingNote) }} user(s)
+            </span>
+          </div>
+        </div>
+        <div class="modal-actions-header">
+          <button class="btn-icon" (click)="toggleFullscreen()" title="Toggle Fullscreen">
+            <span *ngIf="!isFullscreen">⛶</span>
+            <span *ngIf="isFullscreen">⛶</span>
+          </button>
+          <button class="btn-icon" (click)="copyNoteContent()" title="Copy to Clipboard">📋</button>
+          <button class="btn-icon" (click)="printNote()" title="Print Note">🖨️</button>
+          <button class="btn-close" (click)="closeViewModal()" title="Close">×</button>
+        </div>
       </div>
-      <div class="modal-content">
-        <div class="note-full-content">
-          <div class="note-meta-info" *ngIf="viewingNote">
+      
+      <div class="modal-body">
+        <div class="note-metadata" *ngIf="viewingNote">
+          <div class="metadata-grid">
             <div class="meta-item">
-              <span class="meta-label">Created:</span>
-              <span class="meta-value">{{ viewingNote.createdAt | date:'medium' }}</span>
+              <span class="meta-icon">📅</span>
+              <div class="meta-content">
+                <span class="meta-label">Created</span>
+                <span class="meta-value">{{ viewingNote.createdAt | date:'medium' }}</span>
+              </div>
             </div>
             <div class="meta-item">
-              <span class="meta-label">Updated:</span>
-              <span class="meta-value">{{ viewingNote.updatedAt | date:'medium' }}</span>
+              <span class="meta-icon">✏️</span>
+              <div class="meta-content">
+                <span class="meta-label">Last Updated</span>
+                <span class="meta-value">{{ viewingNote.updatedAt | date:'medium' }}</span>
+              </div>
             </div>
-            <div class="meta-item" *ngIf="viewingNote.owner._id !== authService.currentUserValue?._id">
-              <span class="meta-label">Owner:</span>
-              <span class="meta-value">{{ viewingNote.owner.firstName }} {{ viewingNote.owner.lastName }}</span>
+            <div class="meta-item" *ngIf="isNotNoteOwner(viewingNote)">
+              <span class="meta-icon">👤</span>
+              <div class="meta-content">
+                <span class="meta-label">Owner</span>
+                <span class="meta-value">{{ viewingNote.owner.firstName }} {{ viewingNote.owner.lastName }}</span>
+              </div>
             </div>
             <div class="meta-item" *ngIf="viewingNote.tags && viewingNote.tags.length > 0">
-              <span class="meta-label">Tags:</span>
-              <div class="tags-display">
-                <span class="tag" *ngFor="let tag of viewingNote.tags">#{{ tag }}</span>
+              <span class="meta-icon">🏷️</span>
+              <div class="meta-content">
+                <span class="meta-label">Tags</span>
+                <div class="tags-display">
+                  <span class="tag" *ngFor="let tag of viewingNote.tags">#{{ tag }}</span>
+                </div>
               </div>
             </div>
           </div>
-          <div class="content-section">
-            <h4>Content:</h4>
-            <div class="content-display">{{ viewingNote?.content }}</div>
+        </div>
+
+        <div class="note-content-section">
+          <div class="content-header">
+            <h3>📝 Content</h3>
+            <div class="content-actions">
+              <button class="btn-small" (click)="toggleContentMode()" title="Toggle view mode">
+                <span *ngIf="contentMode === 'formatted'">📝 Raw</span>
+                <span *ngIf="contentMode === 'raw'">🎨 Formatted</span>
+              </button>
+            </div>
+          </div>
+          
+          <div class="content-display" [class.raw-mode]="contentMode === 'raw'">
+            <div *ngIf="contentMode === 'formatted'" class="formatted-content" [innerHTML]="getFormattedContent(viewingNote?.content)"></div>
+            <pre *ngIf="contentMode === 'raw'" class="raw-content">{{ viewingNote?.content }}</pre>
           </div>
         </div>
-        <div class="modal-actions">
-          <button class="btn btn-outline" (click)="closeViewModal()">Close</button>
-          <button class="btn btn-primary" (click)="editFromView(viewingNote?._id)">Edit Note</button>
+
+        <div class="shared-users-section" *ngIf="viewingNote && hasSharedUsers(viewingNote)">
+          <h3>👥 Shared With</h3>
+          <div class="shared-users-list">
+            <div class="shared-user-item" *ngFor="let share of viewingNote.sharedWith">
+              <div class="user-avatar">
+                {{ getUserInitials(share.user) }}
+              </div>
+              <div class="user-info">
+                <div class="user-name">{{ share.user.firstName }} {{ share.user.lastName }}</div>
+                <div class="user-email">{{ share.user.email }}</div>
+              </div>
+              <div class="permission-badge" [class]="'permission-' + share.permission">
+                <span *ngIf="share.permission === 'read'">👁️ Read</span>
+                <span *ngIf="share.permission === 'write'">✏️ Write</span>
+              </div>
+              <button 
+                class="btn-icon text-red" 
+                (click)="removeShareFromView(share.user._id)" 
+                title="Remove access"
+                *ngIf="isNoteOwner(viewingNote)">
+                🗑️
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="modal-footer">
+        <div class="footer-actions">
+          <button class="btn btn-outline" (click)="closeViewModal()">
+            <span>Close</span>
+          </button>
+          <button class="btn btn-secondary" (click)="shareFromView(viewingNote!)" *ngIf="viewingNote && isNoteOwner(viewingNote)">
+            <span>🔗 Share</span>
+          </button>
+          <button class="btn btn-primary" (click)="editFromView(viewingNote._id)" *ngIf="viewingNote && canEditNote(viewingNote)">
+            <span>✏️ Edit Note</span>
+          </button>
         </div>
       </div>
     </div>

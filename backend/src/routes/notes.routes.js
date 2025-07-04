@@ -11,12 +11,33 @@ const noteValidation = [
     .trim()
     .notEmpty()
     .withMessage('Title is required')
-    .isLength({ max: 200 })
-    .withMessage('Title cannot exceed 200 characters'),
+    .isLength({ min: 3, max: 200 })
+    .withMessage('Title must be between 3 and 200 characters'),
   body('content')
     .trim()
     .notEmpty()
-    .withMessage('Content is required'),
+    .withMessage('Content is required')
+    .isLength({ min: 3 })
+    .withMessage('Content must be at least 3 characters'),
+  body('tags')
+    .optional()
+    .isArray()
+    .withMessage('Tags must be an array')
+];
+
+const updateNoteValidation = [
+  body('title')
+    .optional()
+    .trim()
+    .notEmpty()
+    .withMessage('Title cannot be empty')
+    .isLength({ max: 200 })
+    .withMessage('Title cannot exceed 200 characters'),
+  body('content')
+    .optional()
+    .trim()
+    .notEmpty()
+    .withMessage('Content cannot be empty'),
   body('tags')
     .optional()
     .isArray()
@@ -43,7 +64,7 @@ router.get('/archived', notesController.getArchivedNotes);
 router.patch('/:id/archive', notesController.archiveNote);
 router.patch('/:id/unarchive', notesController.unarchiveNote);
 router.get('/:id', notesController.getNoteById);
-router.put('/:id', noteValidation, notesController.updateNote);
+router.put('/:id', updateNoteValidation, notesController.updateNote);
 router.delete('/:id', notesController.deleteNote);
 router.post('/:id/share', shareValidation, notesController.shareNote);
 router.delete('/:id/share/:userId', notesController.removeShare);

@@ -40,6 +40,9 @@ router.use(authMiddleware);
 // Search user by email (accessible to all authenticated users for sharing)
 router.get('/search/email', userController.getUserByEmail);
 
+// Search users by name/email (accessible to all authenticated users for sharing)
+router.get('/search', userController.searchUsers);
+
 // Admin-only routes
 router.use(adminOnly);
 

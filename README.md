@@ -406,6 +406,8 @@ npm run test:coverage
 # Watch mode for development
 npm run test:watch
 ```
+![Test Results](https://res.cloudinary.com/drbnwx068/image/upload/v1751612022/github/Screenshot_from_2025-07-04_12-21-51_znjxkp.png)
+
 
 ### Test Structure
 - **Unit Tests**: Model validation, business logic

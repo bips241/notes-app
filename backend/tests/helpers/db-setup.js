@@ -17,9 +17,8 @@ const connectDB = async () => {
     // Connect to the in-memory database
     await mongoose.connect(mongoUri);
     
-    console.log('Connected to in-memory MongoDB for testing');
+    // Connected to test database
   } catch (error) {
-    console.error('Error connecting to test database:', error);
     process.exit(1);
   }
 };
@@ -34,9 +33,9 @@ const disconnectDB = async () => {
       await mongoServer.stop();
     }
     
-    console.log('Disconnected from in-memory MongoDB');
+    // Disconnected from test database
   } catch (error) {
-    console.error('Error disconnecting from test database:', error);
+    // Error disconnecting from test database
   }
 };
 

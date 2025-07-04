@@ -56,7 +56,27 @@ export class AuthService {
   }
 
   getProfile(): Observable<{ user: User }> {
-    return this.http.get<{ user: User }>(`${this.apiUrl}/auth/profile`);
+    return this.http.get<{ user: User }>(`${this.apiUrl}/auth/profile`, this.getHttpOptions());
+  }
+
+  updateProfile(profileData: Partial<User>): Observable<{ message: string; user: User }> {
+    return this.http.put<{ message: string; user: User }>(
+      `${this.apiUrl}/auth/profile`,
+      profileData,
+      this.getHttpOptions()
+    ).pipe(
+      tap(response => {
+        // Update the current user data in localStorage and BehaviorSubject
+        this.currentUserSubject.next(response.user);
+        localStorage.setItem('user', JSON.stringify(response.user));
+      })
+    );
+  }
+
+  private getHttpOptions() {
+    return {
+      headers: this.getAuthHeaders()
+    };
   }
 
   private setAuth(token: string, user: User): void {

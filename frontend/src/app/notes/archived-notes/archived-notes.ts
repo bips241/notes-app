@@ -41,9 +41,9 @@ import { Router } from '@angular/router';
               <span class="badge" *ngIf="hasSharedUsers(note)">🔗 Shared ({{ getSharedCount(note) }})</span>
             </div>
             <div class="note-actions" (click)="$event.stopPropagation()">
-              <button class="btn-icon" (click)="unarchiveNote(note._id)" title="Unarchive note">📤</button>
-              <button class="btn-icon" (click)="editNote(note._id)" title="Edit note">✏️</button>
-              <button class="btn-icon" (click)="deleteNote(note._id)" title="Delete note">🗑️</button>
+              <button class="btn-icon" (click)="unarchiveNote(note._id)" title="Unarchive note" *ngIf="canUnarchiveNote(note)">📤</button>
+              <button class="btn-icon" (click)="editNote(note._id)" title="Edit note" *ngIf="canEditNote(note)">✏️</button>
+              <button class="btn-icon" (click)="deleteNote(note._id)" title="Delete note" *ngIf="canDeleteNote(note)">🗑️</button>
             </div>
           </div>
           <p class="note-content">{{ getPreviewText(note.content) }}</p>
@@ -105,8 +105,7 @@ import { Router } from '@angular/router';
           </div>
           <div class="modal-actions">
             <button class="btn btn-outline" (click)="closeViewModal()">Close</button>
-            <button class="btn btn-secondary" (click)="unarchiveFromModal()">📤 Unarchive</button>
-            <button class="btn btn-primary" (click)="editFromView(viewingNote?._id)">Edit Note</button>
+            <button class="btn btn-primary" (click)="editFromView(viewingNote._id)" *ngIf="viewingNote && canEditNote(viewingNote)">Edit Note</button>
           </div>
         </div>
       </div>
@@ -228,14 +227,6 @@ export class ArchivedNotesComponent implements OnInit {
     }
   }
 
-  unarchiveFromModal() {
-    if (this.viewingNote) {
-      console.log('Unarchiving note from modal:', this.viewingNote._id);
-      this.closeViewModal();
-      this.unarchiveNote(this.viewingNote._id);
-    }
-  }
-
   deleteNote(noteId: string) {
     if (confirm('Are you sure you want to permanently delete this note?')) {
       this.notesService.deleteNote(noteId).subscribe({
@@ -252,5 +243,32 @@ export class ArchivedNotesComponent implements OnInit {
 
   goToNotes() {
     this.router.navigate(['/notes']);
+  }
+
+  // Permission checking methods
+  canEditNote(note: Note): boolean {
+    return note.owner._id === this.authService.currentUserValue?._id || 
+           (note.sharedWith && note.sharedWith.some(share => 
+             share.user._id === this.authService.currentUserValue?._id && 
+             share.permission === 'write'));
+  }
+
+  canDeleteNote(note: Note): boolean {
+    return note.owner._id === this.authService.currentUserValue?._id;
+  }
+
+  canUnarchiveNote(note: Note): boolean {
+    return note.owner._id === this.authService.currentUserValue?._id || 
+           (note.sharedWith && note.sharedWith.some(share => 
+             share.user._id === this.authService.currentUserValue?._id && 
+             share.permission === 'write'));
+  }
+
+  isNoteOwner(note: Note | null): boolean {
+    return note?.owner._id === this.authService.currentUserValue?._id;
+  }
+
+  isNotNoteOwner(note: Note | null): boolean {
+    return note?.owner._id !== this.authService.currentUserValue?._id;
   }
 }

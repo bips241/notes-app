@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
+import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { User, PaginationResponse, UsersResponse, SharingRestrictionsResponse } from '../models/interfaces';
 import { AuthService } from './auth.service';
@@ -22,11 +23,21 @@ export class UserService {
     };
   }
 
+  // Helper method to check if current user has admin privileges
+  private requiresAdmin(): boolean {
+    const currentUser = this.authService.currentUserValue;
+    return currentUser?.role === 'admin';
+  }
+
   getAllUsers(options: {
     page?: number;
     limit?: number;
     search?: string;
   } = {}): Observable<UsersResponse> {
+    if (!this.requiresAdmin()) {
+      throw new Error('Admin privileges required');
+    }
+    
     let params = new HttpParams();
     
     if (options.page) params = params.set('page', options.page.toString());
@@ -47,6 +58,10 @@ export class UserService {
   }
 
   updateUser(id: string, userData: Partial<User>): Observable<{ message: string; user: User }> {
+    if (!this.requiresAdmin()) {
+      throw new Error('Admin privileges required');
+    }
+    
     return this.http.put<{ message: string; user: User }>(
       `${this.apiUrl}/users/${id}`,
       userData,
@@ -55,6 +70,10 @@ export class UserService {
   }
 
   deactivateUser(id: string): Observable<{ message: string }> {
+    if (!this.requiresAdmin()) {
+      throw new Error('Admin privileges required');
+    }
+    
     return this.http.patch<{ message: string }>(
       `${this.apiUrl}/users/${id}/deactivate`,
       {},
@@ -63,6 +82,10 @@ export class UserService {
   }
 
   activateUser(id: string): Observable<{ message: string }> {
+    if (!this.requiresAdmin()) {
+      throw new Error('Admin privileges required');
+    }
+    
     return this.http.patch<{ message: string }>(
       `${this.apiUrl}/users/${id}/activate`,
       {},
@@ -78,6 +101,10 @@ export class UserService {
   }
 
   getSharingRestrictions(userId: string): Observable<SharingRestrictionsResponse> {
+    if (!this.requiresAdmin()) {
+      throw new Error('Admin privileges required');
+    }
+    
     return this.http.get<SharingRestrictionsResponse>(
       `${this.apiUrl}/users/${userId}/sharing-restrictions`,
       this.getHttpOptions()
@@ -85,6 +112,10 @@ export class UserService {
   }
 
   addSharingRestriction(userId: string, restrictedUserId: string): Observable<{ message: string }> {
+    if (!this.requiresAdmin()) {
+      throw new Error('Admin privileges required');
+    }
+    
     return this.http.post<{ message: string }>(
       `${this.apiUrl}/users/${userId}/sharing-restrictions`,
       { restrictedUserId },
@@ -93,13 +124,42 @@ export class UserService {
   }
 
   removeSharingRestriction(userId: string, restrictedUserId: string): Observable<{ message: string }> {
+    if (!this.requiresAdmin()) {
+      throw new Error('Admin privileges required');
+    }
+    
     return this.http.delete<{ message: string }>(
       `${this.apiUrl}/users/${userId}/sharing-restrictions/${restrictedUserId}`,
       this.getHttpOptions()
     );
   }
 
-  searchUsers(searchTerm: string): Observable<UsersResponse> {
-    return this.getAllUsers({ search: searchTerm, limit: 10 });
+  searchUsers(searchTerm: string): Observable<{ users: User[] }> {
+    const params = new HttpParams()
+      .set('q', searchTerm)
+      .set('limit', '10');
+      
+    return this.http.get<{ users: User[] }>(
+      `${this.apiUrl}/users/search`,
+      { ...this.getHttpOptions(), params }
+    );
+  }
+
+  searchUsersWithDebounce(searchTerm$: Observable<string>): Observable<{ users: User[] }> {
+    return searchTerm$.pipe(
+      debounceTime(300), // Wait 300ms after user stops typing
+      distinctUntilChanged(), // Only search if the search term has changed
+      switchMap(searchTerm => {
+        if (!searchTerm || searchTerm.trim().length < 1) {
+          return of({ users: [] });
+        }
+        return this.searchUsers(searchTerm.trim()).pipe(
+          catchError(error => {
+            console.error('User search error:', error);
+            return of({ users: [] });
+          })
+        );
+      })
+    );
   }
 }

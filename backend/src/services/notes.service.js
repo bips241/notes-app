@@ -13,28 +13,32 @@ const notesService = {
   },
 
   async getNotes(userId, options = {}) {
-    const { page = 1, limit = 10, search, tags, isArchived = false, includeShared = true } = options;
+    const { page = 1, limit = 10, search, tags, isArchived = false, includeShared = true, includeArchived = false } = options;
     const skip = (page - 1) * limit;
-
-    console.log('🔍 getNotes called with:', { userId, options });
 
     // Build query
     let query;
     if (includeShared) {
-      // Include both owned and shared notes, but exclude archived by default
+      // Include both owned and shared notes
       query = {
-        isArchived: isArchived,
         $or: [
           { owner: userId },
           { 'sharedWith.user': userId }
         ]
       };
     } else {
-      // Only owned notes, exclude archived by default
+      // Only owned notes
       query = { 
-        owner: userId,
-        isArchived: isArchived
+        owner: userId
       };
+    }
+
+    // Handle archived notes
+    if (includeArchived) {
+      // Include both archived and non-archived notes - no filter needed
+    } else {
+      // Only non-archived notes
+      query.isArchived = false;
     }
 
     // Only add text search if search term is provided
@@ -46,11 +50,8 @@ const notesService = {
       query.tags = { $in: tags };
     }
 
-    console.log('📊 Final query:', JSON.stringify(query, null, 2));
-
     // First, let's check how many notes exist for this user without any filters
     const totalUserNotes = await Note.countDocuments({ owner: userId });
-    console.log(`📈 Total notes owned by user ${userId}: ${totalUserNotes}`);
 
     const notes = await Note.find(query)
       .populate('owner', 'username email firstName lastName')
@@ -58,9 +59,6 @@ const notesService = {
       .sort({ updatedAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
-
-    console.log(`📝 Found ${notes.length} notes for user ${userId}`);
-    console.log('📋 Note IDs found:', notes.map(n => n._id.toString()));
 
     const total = await Note.countDocuments(query);
 
@@ -119,13 +117,25 @@ const notesService = {
     .populate('sharedWith.user', 'username email firstName lastName');
 
     if (!note) {
-      throw new Error('Note not found or access denied');
+      // Check if note exists at all
+      const noteExists = await Note.findById(noteId);
+      if (!noteExists) {
+        throw new Error('Note not found or access denied');
+      } else {
+        throw new Error('Access denied');
+      }
     }
 
     return note;
   },
 
   async updateNote(noteId, updateData, userId) {
+    // First check if note exists
+    const noteExists = await Note.findById(noteId);
+    if (!noteExists) {
+      throw new Error('Note not found or access denied');
+    }
+
     const note = await Note.findOne({
       _id: noteId,
       $or: [
@@ -138,11 +148,21 @@ const notesService = {
     });
 
     if (!note) {
-      throw new Error('Note not found or no write permission');
+      throw new Error('Access denied');
     }
 
+    // Update the note fields
     Object.assign(note, updateData);
-    await note.save();
+    
+    try {
+      await note.save();
+    } catch (error) {
+      // If it's a validation error, but we've already checked permissions, re-throw as validation error
+      if (error.name === 'ValidationError') {
+        throw error;
+      }
+      throw error;
+    }
 
     return await note.populate('owner', 'username email firstName lastName');
   },
@@ -241,8 +261,6 @@ const notesService = {
   },
 
   async unarchiveNote(noteId, userId) {
-    console.log('🔍 Looking for note to unarchive:', noteId, 'for user:', userId);
-    
     const note = await Note.findOne({
       _id: noteId,
       $or: [
@@ -252,16 +270,11 @@ const notesService = {
     });
 
     if (!note) {
-      console.log('❌ Note not found or insufficient permissions');
       throw new Error('Note not found or insufficient permissions');
     }
 
-    console.log('📝 Found note:', note.title, 'Current archived status:', note.isArchived);
-    
     note.isArchived = false;
     await note.save();
-    
-    console.log('✅ Note unarchived and saved');
 
     return await note.populate('owner', 'username email firstName lastName');
   },

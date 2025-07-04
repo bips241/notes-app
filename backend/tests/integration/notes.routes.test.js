@@ -22,7 +22,7 @@ describe('Notes Routes', () => {
         .expect(200);
 
       expect(response.body.notes).toHaveLength(3);
-      expect(response.body.notes[0].owner._id).toBe(testUser.user._id);
+      expect(response.body.notes[0].owner._id.toString()).toBe(testUser.user._id.toString());
     });
 
     it('should not get notes without token', async () => {
@@ -127,7 +127,7 @@ describe('Notes Routes', () => {
       expect(response.body.note.title).toBe(noteData.title);
       expect(response.body.note.content).toBe(noteData.content);
       expect(response.body.note.tags).toEqual(noteData.tags);
-      expect(response.body.note.owner._id).toBe(testUser.user._id);
+      expect(response.body.note.owner._id.toString()).toBe(testUser.user._id.toString());
     });
 
     it('should not create note without token', async () => {
@@ -371,7 +371,7 @@ describe('Notes Routes', () => {
 
       expect(response.body.message).toBe('Note shared successfully');
       expect(response.body.note.sharedWith).toHaveLength(1);
-      expect(response.body.note.sharedWith[0].user._id).toBe(otherUser.user._id);
+      expect(response.body.note.sharedWith[0].user._id.toString()).toBe(otherUser.user._id.toString());
       expect(response.body.note.sharedWith[0].permission).toBe('read');
     });
 

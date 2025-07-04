@@ -249,7 +249,7 @@ describe('E2E: Complete User Journey', () => {
         .send({ title: 'Edited Title' })
         .expect(403);
 
-      expect(editAttempt.body.message).toBe('Insufficient permissions');
+      expect(editAttempt.body.message).toBe('Access denied');
 
       // 6. User1 updates sharing permissions to write
       const updateShareData = {
@@ -377,7 +377,7 @@ describe('E2E: Complete User Journey', () => {
         .expect(200);
 
       expect(restrictionsResponse.body.restrictedUsers).toHaveLength(1);
-      expect(restrictionsResponse.body.restrictedUsers[0]._id).toBe(user2.user._id);
+      expect(restrictionsResponse.body.restrictedUsers[0]._id.toString()).toBe(user2.user._id.toString());
 
       // 9. Admin removes sharing restriction
       await request(app)

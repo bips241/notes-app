@@ -1,11 +1,9 @@
 const errorMiddleware = (err, req, res, next) => {
-  console.error('Error:', err);
-
   // Mongoose validation error
   if (err.name === 'ValidationError') {
     const errors = Object.values(err.errors).map(error => error.message);
     return res.status(400).json({
-      message: 'Validation Error',
+      message: 'Validation failed',
       errors
     });
   }
@@ -13,7 +11,7 @@ const errorMiddleware = (err, req, res, next) => {
   // Mongoose CastError (invalid ObjectId)
   if (err.name === 'CastError') {
     return res.status(400).json({
-      message: 'Invalid ID format'
+      message: 'Invalid note ID'
     });
   }
 
@@ -69,13 +67,19 @@ const errorMiddleware = (err, req, res, next) => {
     });
   }
 
+  if (err.message === 'Access denied') {
+    return res.status(403).json({
+      message: 'Access denied'
+    });
+  }
+
   if (err.message === 'Note not found or you are not the owner') {
     return res.status(403).json({
       message: 'Access denied'
     });
   }
 
-  if (err.message === 'Note not found or no write permission') {
+  if (err.message === 'Note not found or no write permission' || err.message === 'Insufficient permissions') {
     return res.status(403).json({
       message: 'Insufficient permissions'
     });
