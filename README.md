@@ -9,7 +9,49 @@ A modern, full-stack notes management application built with Angular and Node.js
 
 ## 🌟 Features
 
-### Core Functionality
+### Core Fu## 📖 API Documentation
+
+### Postman Collection
+
+A complete Postman collection is available for testing all API endpoints:
+
+- **Collection**: [`Notes-App-API.postman_collection.json`](./Notes-App-API.postman_collection.json)
+- **Environment**: [`Notes-App-Environment.postman_environment.json`](./Notes-App-Environment.postman_environment.json)
+
+#### Quick Setup
+1. **Import Collection**: Import the collection file into Postman
+2. **Import Environment**: Import the environment file
+3. **Set Base URL**: Update `baseUrl` in environment (default: `http://localhost:3000/api`)
+4. **Login**: Use "Login User" request to get authentication token
+5. **Test Endpoints**: All requests will automatically use the auth token
+
+#### Collection Features
+- **Auto-Authentication**: Token automatically set after login
+- **Environment Variables**: Dynamic values for IDs and tokens
+- **Comprehensive Tests**: Built-in response validation
+- **Error Handling**: Tests for common error scenarios
+- **Complete Coverage**: All API endpoints included
+
+#### Testing Workflow
+```bash
+# Start the backend server
+cd backend
+npm run dev
+
+# In Postman:
+# 1. Import collection and environment
+# 2. Run "Login User" request
+# 3. Run any endpoint tests
+# 4. Use "Login Regular User" for user-level testing
+```
+
+### Authentication Endpoints
+```
+POST /api/auth/register     # User registration
+POST /api/auth/login        # User login
+GET  /api/auth/profile      # Get user profile
+PUT  /api/auth/profile      # Update user profile
+```ty
 - **User Authentication & Authorization**
   - JWT-based authentication
   - Role-based access control (User/Admin)
