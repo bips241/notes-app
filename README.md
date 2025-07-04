@@ -120,7 +120,7 @@ notes-app/
 
 1. **Clone the repository**
    ```bash
-   git clone <repository-url>
+   gh repo clone bips241/notes-app
    cd notes-app
    ```
 
